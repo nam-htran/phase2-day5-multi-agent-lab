@@ -11,3 +11,5 @@ build/
 reports/*.json
 reports/*.md
 !.gitkeep
+package**.json
+node_modules/**
