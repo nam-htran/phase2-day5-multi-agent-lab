@@ -12,33 +12,34 @@ class CriticAgent(BaseAgent):
     name = "critic"
 
     def run(self, state: ResearchState) -> ResearchState:
-        """Validate final answer and append findings."""
-        if not state.final_answer:
+        """Critique the final answer and flag if it needs revision."""
+        from multi_agent_research_lab.observability.tracing import trace_span
+        with trace_span("critic_agent", {"query": state.request.query}):
+            if not state.final_answer:
+                return state
+                
+            llm = LLMClient()
+            system_prompt = (
+                "You are an expert Reviewer. Review the provided 'Final Answer' against the 'Research Query'. "
+                "Output your review. If the answer is poor, start your response with 'CRITIQUE: FAIL'. "
+                "Otherwise, start with 'CRITIQUE: PASS'."
+            )
+            
+            user_prompt = (
+                f"Query: {state.request.query}\n\n"
+                f"Final Answer:\n{state.final_answer}\n\n"
+                "Please review."
+            )
+            
+            response = llm.complete(system_prompt, user_prompt)
+            review = response.content
+            
+            state.agent_results.append(AgentResult(
+                agent=self.name,
+                content=review
+            ))
+            
+            if review.strip().startswith("CRITIQUE: FAIL"):
+                state.final_answer = ""
+                
             return state
-
-        llm = LLMClient()
-        system_prompt = (
-            "You are a strict Critic. Review the final answer against the research notes. "
-            "Provide a brief critique. If it is good, say 'CRITIQUE: PASS'. "
-            "If it has issues, say 'CRITIQUE: FAIL' and explain why."
-        )
-        
-        user_prompt = (
-            f"Query: {state.request.query}\n\n"
-            f"Research Notes:\n{state.research_notes}\n\n"
-            f"Final Answer:\n{state.final_answer}\n\n"
-            "Please provide your critique."
-        )
-        
-        response = llm.complete(system_prompt, user_prompt)
-        critique_text = response.content
-        
-        # Append critique to final answer
-        state.final_answer += f"\n\n--- Critic Review ---\n{critique_text}"
-        
-        state.agent_results.append(AgentResult(
-            agent=self.name,
-            content=critique_text
-        ))
-        
-        return state

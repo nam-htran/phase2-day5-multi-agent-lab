@@ -144,8 +144,6 @@ Học viên nộp:
 
 1. GitHub repo cá nhân.
 2. Screenshot trace hoặc link trace.
-   <br>
-   ![Langfuse Trace Screenshot](image.png)
 3. `reports/benchmark_report.md` so sánh single vs multi-agent.
 4. Một đoạn giải thích failure mode và cách fix.
 

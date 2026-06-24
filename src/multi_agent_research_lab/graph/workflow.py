@@ -57,10 +57,11 @@ class MultiAgentWorkflow:
     def run(self, state: ResearchState) -> ResearchState:
         """Execute the graph and return final state."""
         app = self.build()
-        # LangGraph invoke typically takes dict or BaseModel.
-        # It returns a dict if the state is Pydantic in recent versions.
-        result = app.invoke(state)
+        from multi_agent_research_lab.observability.tracing import trace_span
         
-        if isinstance(result, dict):
-            return ResearchState(**result)
-        return result
+        with trace_span("multi_agent_workflow", {"query": state.request.query}):
+            result = app.invoke(state)
+            
+            if isinstance(result, dict):
+                return ResearchState(**result)
+            return result

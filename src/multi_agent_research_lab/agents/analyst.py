@@ -12,24 +12,23 @@ class AnalystAgent(BaseAgent):
     name = "analyst"
 
     def run(self, state: ResearchState) -> ResearchState:
-        """Populate `state.analysis_notes`."""
-        if not state.research_notes:
+        """Populate `state.analysis_notes` based on research."""
+        from multi_agent_research_lab.observability.tracing import trace_span
+        with trace_span("analyst_agent", {"query": state.request.query}):
+            if not state.research_notes:
+                state.analysis_notes = "No research notes to analyze."
+                return state
+                
+            llm = LLMClient()
+            system_prompt = "You are a highly analytical AI. Extract key insights and evaluate the strengths/weaknesses of the information."
+            user_prompt = f"Query: {state.request.query}\n\nResearch Notes:\n{state.research_notes}\n\nPlease analyze and provide deep insights."
+            
+            response = llm.complete(system_prompt, user_prompt)
+            state.analysis_notes = response.content
+            
+            state.agent_results.append(AgentResult(
+                agent=self.name,
+                content=response.content
+            ))
+            
             return state
-
-        llm = LLMClient()
-        system_prompt = (
-            "You are a Data Analyst. Extract key claims, compare viewpoints, "
-            "and flag weak evidence from the provided research notes."
-        )
-        
-        user_prompt = f"Query: {state.request.query}\n\nResearch Notes:\n{state.research_notes}\n\nPlease analyze."
-        
-        response = llm.complete(system_prompt, user_prompt)
-        state.analysis_notes = response.content
-        
-        state.agent_results.append(AgentResult(
-            agent=self.name,
-            content=response.content
-        ))
-        
-        return state

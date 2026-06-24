@@ -12,31 +12,29 @@ class WriterAgent(BaseAgent):
     name = "writer"
 
     def run(self, state: ResearchState) -> ResearchState:
-        """Populate `state.final_answer`."""
-        if not state.research_notes:
+        """Populate `state.final_answer` based on notes."""
+        from multi_agent_research_lab.observability.tracing import trace_span
+        with trace_span("writer_agent", {"query": state.request.query}):
+            llm = LLMClient()
+            system_prompt = (
+                "You are an expert Writer. Synthesize the provided research notes "
+                "and analysis notes into a clear, comprehensive final answer. "
+                "Always cite sources and use a professional tone."
+            )
+            
+            user_prompt = (
+                f"Query: {state.request.query}\n\n"
+                f"Research Notes:\n{state.research_notes or 'None'}\n\n"
+                f"Analysis Notes:\n{state.analysis_notes or 'None'}\n\n"
+                "Please write the final comprehensive response."
+            )
+            
+            response = llm.complete(system_prompt, user_prompt)
+            state.final_answer = response.content
+            
+            state.agent_results.append(AgentResult(
+                agent=self.name,
+                content=response.content
+            ))
+            
             return state
-
-        llm = LLMClient()
-        system_prompt = (
-            "You are a Technical Writer. Produce a comprehensive and clear "
-            "final answer using the research notes and analysis. "
-            f"Tailor the response for an audience of: {state.request.audience}. "
-            "Use citations or source references where appropriate."
-        )
-        
-        user_prompt = (
-            f"Query: {state.request.query}\n\n"
-            f"Research Notes:\n{state.research_notes}\n\n"
-            f"Analysis Notes:\n{state.analysis_notes or 'None'}\n\n"
-            "Please write the final answer."
-        )
-        
-        response = llm.complete(system_prompt, user_prompt)
-        state.final_answer = response.content
-        
-        state.agent_results.append(AgentResult(
-            agent=self.name,
-            content=response.content
-        ))
-        
-        return state
